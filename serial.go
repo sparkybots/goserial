@@ -76,9 +76,10 @@ import (
 //    c1.ReadTimeout = time.Millisecond * 500
 //
 type Config struct {
-	Name        string
-	Baud        int
-	ReadTimeout time.Duration // Total timeout
+	Name         string
+	Baud         int
+	ReadTimeout  time.Duration // Total timeout for read
+	WriteTimeout time.Duration // Total timeout for write
 
 	// Size     int // 0 get translated to 8
 	// Parity   SomeNewTypeToGetCorrectDefaultOf_None
@@ -93,7 +94,7 @@ type Config struct {
 
 // OpenPort opens a serial port with the specified configuration
 func OpenPort(c *Config) (io.ReadWriteCloser, error) {
-	return openPort(c.Name, c.Baud, c.ReadTimeout)
+	return openPort(c.Name, c.Baud, c.ReadTimeout, c.WriteTimeout)
 }
 
 // Converts the timeout values for Linux / POSIX systems

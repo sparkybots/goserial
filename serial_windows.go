@@ -38,7 +38,7 @@ type structTimeouts struct {
 	WriteTotalTimeoutConstant   uint32
 }
 
-func openPort(name string, baud int, readTimeout time.Duration) (rwc io.ReadWriteCloser, err error) {
+func openPort(name string, baud int, readTimeout time.Duration, writeTimeout time.Duration) (rwc io.ReadWriteCloser, err error) {
 	if len(name) > 0 && name[0] != '\\' {
 		name = "\\\\.\\" + name
 	}
@@ -66,7 +66,7 @@ func openPort(name string, baud int, readTimeout time.Duration) (rwc io.ReadWrit
 	if err = setupComm(h, 64, 64); err != nil {
 		return
 	}
-	if err = setCommTimeouts(h, readTimeout); err != nil {
+	if err = setCommTimeouts(h, readTimeout, writeTimeout); err != nil {
 		return
 	}
 	if err = setCommMask(h); err != nil {
@@ -179,7 +179,7 @@ func setCommState(h syscall.Handle, baud int) error {
 	return nil
 }
 
-func setCommTimeouts(h syscall.Handle, readTimeout time.Duration) error {
+func setCommTimeouts(h syscall.Handle, readTimeout time.Duration, writeTimeout time.Duration) error {
 	var timeouts structTimeouts
 	const MAXDWORD = 1<<32 - 1
 
@@ -199,6 +199,23 @@ func setCommTimeouts(h syscall.Handle, readTimeout time.Duration) error {
 		timeouts.ReadIntervalTimeout = MAXDWORD
 		timeouts.ReadTotalTimeoutMultiplier = MAXDWORD
 		timeouts.ReadTotalTimeoutConstant = MAXDWORD - 1
+	}
+
+	if writeTimeout > 0 {
+		// non-blocking read
+		timeoutMs := writeTimeout.Nanoseconds() / 1e6
+		if timeoutMs < 1 {
+			timeoutMs = 1
+		} else if timeoutMs > MAXDWORD {
+			timeoutMs = MAXDWORD
+		}
+
+		timeouts.WriteTotalTimeoutMultiplier = 0
+		timeouts.WriteTotalTimeoutConstant = uint32(timeoutMs)
+	} else {
+		// blocking read
+		timeouts.WriteTotalTimeoutMultiplier = MAXDWORD
+		timeouts.WriteTotalTimeoutConstant = MAXDWORD - 1
 	}
 
 	/* From http://msdn.microsoft.com/en-us/library/aa363190(v=VS.85).aspx
